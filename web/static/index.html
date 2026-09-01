@@ -14,9 +14,6 @@
     <div class="logo">🎯</div>
     <h1>OKR Agent</h1>
     <p class="subtitle">AI-агент для работы с OKR вашей команды</p>
-    <div id="team-name-row">
-      <input type="text" id="team-name-input" placeholder="Название вашей команды" autocomplete="organization" />
-    </div>
     <div id="password-row" style="display:none">
       <input type="password" id="password-input" placeholder="Пароль доступа" />
     </div>
@@ -54,6 +51,15 @@
   <div id="text-screen" class="main-layout">
 
     <aside class="sidebar">
+
+      <section class="sidebar-section" id="team-section">
+        <h3>👥 Ваша команда</h3>
+        <input type="text" id="team-name-input"
+               placeholder="Название команды…"
+               onkeydown="if(event.key==='Enter') App.saveTeam()" />
+        <button class="btn-tool" onclick="App.saveTeam()" style="margin-top:6px">Сохранить</button>
+        <p id="team-saved-hint" class="hint" style="display:none; color:#4ade80; margin-top:4px"></p>
+      </section>
 
       <section class="sidebar-section">
         <h3>📋 Проверить OKR</h3>

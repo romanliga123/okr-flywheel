@@ -84,6 +84,18 @@ header {
 
 #team-name-row { margin-bottom: 12px; }
 
+#team-section input[type="text"] {
+  width: 100%;
+  background: #0d0d1a;
+  border: 1px solid #1e293b;
+  border-radius: 7px;
+  color: #e2e8f0;
+  padding: 7px 9px;
+  font-size: 12px;
+  outline: none;
+  font-family: inherit;
+}
+
 .badge {
   background: #1e1b4b;
   color: #c4b5fd;
