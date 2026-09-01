@@ -71,6 +71,19 @@ header {
 .header-logo { font-size: 15px; font-weight: 700; color: #a78bfa; }
 .header-controls { display: flex; align-items: center; gap: 10px; }
 
+.team-badge {
+  display: inline-flex; align-items: center;
+  background: rgba(167,139,250,.12);
+  border: 1px solid rgba(167,139,250,.25);
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-size: 12px; font-weight: 600;
+  color: #a78bfa;
+  white-space: nowrap;
+}
+
+#team-name-row { margin-bottom: 12px; }
+
 .badge {
   background: #1e1b4b;
   color: #c4b5fd;

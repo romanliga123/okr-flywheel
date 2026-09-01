@@ -14,6 +14,9 @@
     <div class="logo">🎯</div>
     <h1>OKR Agent</h1>
     <p class="subtitle">AI-агент для работы с OKR вашей команды</p>
+    <div id="team-name-row">
+      <input type="text" id="team-name-input" placeholder="Название вашей команды" autocomplete="organization" />
+    </div>
     <div id="password-row" style="display:none">
       <input type="password" id="password-input" placeholder="Пароль доступа" />
     </div>
@@ -34,6 +37,7 @@
       <button id="switch-voice"  class="agent-tab"        onclick="App.switchAgent('voice')">🎙 Голосовой</button>
     </div>
     <div class="header-controls">
+      <span id="team-badge" class="team-badge" style="display:none"></span>
       <div class="provider-selector">
         <span class="provider-dot" id="provider-dot">🟢</span>
         <select id="provider-select" class="provider-select" onchange="App.switchProvider(this.value)" title="Сменить LLM-провайдер">

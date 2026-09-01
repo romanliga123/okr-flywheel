@@ -1148,6 +1148,28 @@ Objective должен быть качественным (без цифр), Key 
             return f"Ошибка валидации OKR: {e}"
 
     @staticmethod
+    def _extract_score(text: str) -> float:
+        """Парсит первый 'ОЦЕНКА: X/10' из текста. Возвращает 0.0 если не найдено."""
+        import re as _re
+        m = _re.search(r'ОЦЕНКА:\s*(\d+(?:[.,]\d+)?)/10', text)
+        if m:
+            return float(m.group(1).replace(',', '.'))
+        return 0.0
+
+    @staticmethod
+    def _extract_errors(text: str) -> list:
+        """Возвращает список кодов критериев с ❌ (например ['O2', 'KR3'])."""
+        import re as _re
+        errors = []
+        for line in text.split('\n'):
+            if '❌' in line:
+                m = _re.search(r'\b(O\d+|KR?\d+)\b', line, _re.IGNORECASE)
+                if m:
+                    errors.append(m.group(1).upper())
+        seen = set()
+        return [e for e in errors if not (e in seen or seen.add(e))]
+
+    @staticmethod
     def _fix_scores(text: str) -> str:
         """Пересчитывает ОЦЕНКА: X/10 на основе ✅/⚠️/❌ в предшествующих критериях."""
         import re

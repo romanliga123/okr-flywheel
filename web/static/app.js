@@ -12,14 +12,47 @@ const App = (() => {
 
   let needsPassword = false;
   let currentAgent = 'text';
+  let _teamName = '';
+
+  // ── Team helpers ─────────────────────────────────────────────────
+  async function _registerTeam(sessionId, name) {
+    try {
+      await fetch(`/api/${sessionId}/team`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+    } catch (_) {}
+  }
+
+  function _showTeamBadge() {
+    const badge = document.getElementById('team-badge');
+    if (!badge) return;
+    const name = _teamName || localStorage.getItem('okr_team_name') || '';
+    if (name) {
+      badge.textContent = '👥 ' + name;
+      badge.style.display = 'inline-flex';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
 
   // ── Init ─────────────────────────────────────────────────────────
   async function init() {
+    // Restore team name
+    _teamName = localStorage.getItem('okr_team_name') || '';
+    if (_teamName) {
+      const el = document.getElementById('team-name-input');
+      if (el) el.value = _teamName;
+    }
+
     // Try to restore text-agent session (default agent on load)
     const saved = localStorage.getItem(LS_KEY.text);
     if (saved) {
       state.text.sessionId = saved;
+      if (_teamName) await _registerTeam(saved, _teamName);
       showApp();
+      _showTeamBadge();
       await connectWS('text');
       return;
     }
@@ -41,6 +74,7 @@ const App = (() => {
   }
 
   document.getElementById('enter-btn').addEventListener('click', async () => {
+    const teamName = (document.getElementById('team-name-input').value || '').trim();
     const pwd = document.getElementById('password-input').value;
     const form = new FormData();
     if (needsPassword) form.append('password', pwd);
@@ -50,7 +84,13 @@ const App = (() => {
     const d = await r.json();
     state.text.sessionId = d.session_id;
     localStorage.setItem(LS_KEY.text, d.session_id);
+    if (teamName) {
+      _teamName = teamName;
+      localStorage.setItem('okr_team_name', teamName);
+      await _registerTeam(d.session_id, teamName);
+    }
     showApp();
+    _showTeamBadge();
     await connectWS('text');
   });
 

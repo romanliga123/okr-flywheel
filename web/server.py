@@ -28,6 +28,9 @@ sys.path.insert(0, str(ROOT))
 
 from okr_agent_core import OKRAgentCore
 from agent_loop import AgentLoop
+import memory as _memory
+
+_memory.init_db()
 
 # ── Конфигурация из переменных окружения ────────────────────────────────────
 PROVIDER    = os.getenv("OKR_PROVIDER", "gemini")
@@ -97,7 +100,7 @@ def _get_or_create_session(session_id: str) -> dict:
     with _sessions_lock:
         if session_id not in _sessions:
             core = _make_core()
-            loop = AgentLoop(core=core, web_mode=True)
+            loop = AgentLoop(core=core, web_mode=True, session_id=session_id)
             _sessions[session_id] = {
                 "loop": loop,
                 "created": time.time(),
@@ -186,6 +189,39 @@ async def get_provider(session_id: str):
     sess = _get_or_create_session(session_id)
     p = sess.get("provider", PROVIDER)
     return {"provider": p, "label": PROVIDER_LABELS.get(p, p)}
+
+
+# ── Маховик: команды и метрики ───────────────────────────────────────────────
+
+@app.post("/api/{session_id}/team")
+async def set_team(session_id: str, body: dict):
+    """Зарегистрировать команду для сессии. Вызывается сразу после создания сессии."""
+    name = str(body.get("name", "")).strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="name обязателен")
+    industry = str(body.get("industry", "")).strip()
+    sess = _get_or_create_session(session_id)
+    agent: AgentLoop = sess["loop"]
+    agent.set_team(name, industry)
+    return {"ok": True, "team_id": agent.ctx["team_id"], "team_name": agent.ctx["team_name"]}
+
+
+@app.get("/api/{session_id}/team/history")
+async def team_history(session_id: str):
+    """История валидаций команды для этой сессии."""
+    sess = _get_or_create_session(session_id)
+    agent: AgentLoop = sess["loop"]
+    team_id = agent.ctx.get("team_id")
+    if not team_id:
+        return {"team_name": None, "history": None}
+    ctx = _memory.get_team_context(team_id)
+    return {"team_name": agent.ctx.get("team_name"), "history": ctx}
+
+
+@app.get("/api/admin/metrics")
+async def admin_metrics():
+    """Сводные метрики маховика для Roman."""
+    return _memory.get_metrics()
 
 
 @app.post("/api/{session_id}/validate")

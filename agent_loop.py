@@ -11,6 +11,8 @@ import re
 import time
 from typing import Callable, Optional
 
+import memory as _memory
+
 # ---------------------------------------------------------------------------
 # Системный промпт агента
 # ---------------------------------------------------------------------------
@@ -313,9 +315,10 @@ class AgentLoop:
     маршрутизировать их через сигналы.
     """
 
-    def __init__(self, core, web_mode: bool = False):
+    def __init__(self, core, web_mode: bool = False, session_id: str = ""):
         self.core = core            # OKRAgentCore — может быть None до настройки
         self.web_mode = web_mode    # True = запись через браузер, False = sounddevice (десктоп)
+        self._session_id = session_id  # session_id из web/server.py для записи в лог
         self._lock = threading.Lock()
 
         # Диалог: list[{"role": "user"|"assistant"|"system", "text": str}]
@@ -326,6 +329,10 @@ class AgentLoop:
             "files": {},            # name → краткий контент (для чат-промпта, до 3000 символов)
             "files_raw": {},        # name → полный контент (для анализа, до 15000 символов)
             "transcript_count": 0,  # сколько фрагментов распознано
+            # ── Маховик: профиль команды ─────────────────────────────────
+            "team_id": None,        # UUID команды в memory.db
+            "team_name": None,      # отображаемое имя
+            "last_log_id": None,    # id последней записи в validation_log (для пометки пересдачи)
         }
 
         # Запись митинга
@@ -424,9 +431,21 @@ class AgentLoop:
         if self._stop_event:
             self._stop_event.set()
 
+    def set_team(self, name: str, industry: str = "") -> None:
+        """Зарегистрировать команду для этой сессии. Вызывается из web/server.py."""
+        team = _memory.get_or_create_team(name, industry)
+        self.ctx["team_id"] = team["team_id"]
+        self.ctx["team_name"] = team["name"]
+        _memory.increment_session_count(team["team_id"])
+
     def reset_session(self) -> None:
-        """Сбросить контекст сессии (но не диалог)."""
-        self.ctx = {"files": {}, "files_raw": {}, "transcript_count": 0}
+        """Сбросить контекст сессии (но не диалог). Команда сохраняется."""
+        team_id   = self.ctx.get("team_id")
+        team_name = self.ctx.get("team_name")
+        self.ctx = {
+            "files": {}, "files_raw": {}, "transcript_count": 0,
+            "team_id": team_id, "team_name": team_name, "last_log_id": None,
+        }
         self.core.clear_history() if self.core else None
 
     # ------------------------------------------------------------------
@@ -449,6 +468,25 @@ class AgentLoop:
             ctx_lines.append(f"• Стенограмма: {len(self.core.history)} фрагментов в истории")
         ctx_block = ("\n## ТЕКУЩИЙ КОНТЕКСТ\n" + "\n".join(ctx_lines) + "\n") if ctx_lines else ""
 
+        # Профиль команды — инжектируется если команда зарегистрирована
+        team_block = ""
+        if self.ctx.get("team_id"):
+            try:
+                td = _memory.get_team_context(self.ctx["team_id"])
+                if td["history_count"] > 0:
+                    errs = ", ".join(td["top_errors"]) if td["top_errors"] else "нет"
+                    team_block = (
+                        f"\n## ПРОФИЛЬ КОМАНДЫ: {self.ctx['team_name']}\n"
+                        f"• Прошлых валидаций: {td['history_count']}\n"
+                        f"• Средний балл: {td['avg_score']}/10\n"
+                        f"• Частые ошибки: {errs}\n"
+                        f"• Последние OKR: {td['last_okrs_preview']}\n"
+                    )
+                else:
+                    team_block = f"\n## КОМАНДА: {self.ctx['team_name']} (первая валидация)\n"
+            except Exception:
+                pass
+
         # Содержимое файлов — включается в каждый промпт, не вытесняется историей
         files_block = ""
         if self.ctx["files"]:
@@ -470,7 +508,7 @@ class AgentLoop:
         current_block = f"\n## ТЕКУЩИЙ ВОПРОС\n[USER]: {last_user}\n" if last_user else ""
 
         sys = SYSTEM_PROMPT_WEB if self.web_mode else SYSTEM_PROMPT
-        return f"{sys}{ctx_block}{files_block}{history_block}{current_block}\n[AI]:"
+        return f"{sys}{team_block}{ctx_block}{files_block}{history_block}{current_block}\n[AI]:"
 
     def _step(self) -> None:
         """Один шаг агента: вызов LLM → разбор → выполнение."""
@@ -889,6 +927,34 @@ class AgentLoop:
         try:
             result = self.core.validate_existing_okr(okr_text)
             self._emit(result, "agent")
+
+            # ── Маховик: записать валидацию в лог ────────────────────────
+            team_id = self.ctx.get("team_id")
+            if team_id:
+                try:
+                    score  = self.core._extract_score(result)
+                    errors = self.core._extract_errors(result)
+                    log_id = _memory.log_validation(
+                        team_id=team_id,
+                        session_id=self._session_id,
+                        input_okr=okr_text,
+                        score=score,
+                        top_errors=errors,
+                        suggestions=result,
+                    )
+                    self.ctx["last_log_id"] = log_id
+                    # Паттерн: 3+ раза одна ошибка → агент сам отмечает
+                    td = _memory.get_team_context(team_id)
+                    if td["top_errors"] and td["history_count"] >= 3:
+                        top_err = td["top_errors"][0]
+                        self._emit(
+                            f"📌 Замечаю паттерн: критерий {top_err} нарушается "
+                            f"чаще всего ({td['history_count']} валидаций). "
+                            f"Хотите разберём его подробнее?",
+                            "agent"
+                        )
+                except Exception:
+                    pass
         except Exception as e:
             self._emit(f"Ошибка валидации: {e}", "error")
 
