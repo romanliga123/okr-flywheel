@@ -943,16 +943,19 @@ class AgentLoop:
                         suggestions=result,
                     )
                     self.ctx["last_log_id"] = log_id
-                    # Паттерн: 3+ раза одна ошибка → агент сам отмечает
-                    td = _memory.get_team_context(team_id)
-                    if td["top_errors"] and td["history_count"] >= 3:
-                        top_err = td["top_errors"][0]
-                        self._emit(
-                            f"📌 Замечаю паттерн: критерий {top_err} нарушается "
-                            f"чаще всего ({td['history_count']} валидаций). "
-                            f"Хотите разберём его подробнее?",
-                            "agent"
-                        )
+                    # Паттерн: срабатывает раз в 5 валидаций если та же ошибка
+                    # что и сейчас — главная ошибка команды за всю историю
+                    if errors:
+                        td = _memory.get_team_context(team_id)
+                        hc = td["history_count"]
+                        if hc >= 5 and hc % 5 == 0 and td["top_errors"] and td["top_errors"][0] in errors:
+                            top_err = td["top_errors"][0]
+                            self._emit(
+                                f"📌 Замечаю паттерн: критерий {top_err} — "
+                                f"самая частая ошибка команды за {hc} валидаций. "
+                                f"Хотите разберём его подробнее?",
+                                "agent"
+                            )
                 except Exception:
                     pass
         except Exception as e:
