@@ -1,0 +1,29 @@
+# Виртуальное окружение
+.venv/
+
+# Сборка
+dist/
+build/
+*.spec
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Секреты и конфиги с ключами
+.env
+okr_agent_config.json
+previous_okrs.json
+
+# Иконки и бинарники
+*.ico
+*.exe
+
+# IDE
+.idea/
+.vscode/
+
+# Тесты
+.pytest_cache/

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OKR Agent</title>
+  <link rel="stylesheet" href="/static/style.css?v=7">
+</head>
+<body>
+
+<!-- ── Экран входа ─────────────────────────────────────────────────── -->
+<div id="login-screen" class="screen">
+  <div class="login-box">
+    <div class="logo">🎯</div>
+    <h1>OKR Agent</h1>
+    <p class="subtitle">AI-агент для работы с OKR вашей команды</p>
+    <div id="password-row" style="display:none">
+      <input type="password" id="password-input" placeholder="Пароль доступа" />
+    </div>
+    <button id="enter-btn" class="btn-primary">Войти →</button>
+    <p id="login-error" class="error-text" style="display:none"></p>
+  </div>
+</div>
+
+<!-- ── Основной интерфейс ──────────────────────────────────────────── -->
+<div id="app-screen" class="screen" style="display:none">
+
+  <!-- Шапка -->
+  <header>
+    <span class="header-logo">🎯 OKR Agent</span>
+    <div class="agent-switcher">
+      <button id="switch-text"   class="agent-tab active" onclick="App.switchAgent('text')">📝 Текстовый</button>
+      <button id="switch-sheets" class="agent-tab"        onclick="App.switchAgent('sheets')">📊 Таблицы</button>
+      <button id="switch-voice"  class="agent-tab"        onclick="App.switchAgent('voice')">🎙 Голосовой</button>
+    </div>
+    <div class="header-controls">
+      <div class="provider-selector">
+        <span class="provider-dot" id="provider-dot">🟢</span>
+        <select id="provider-select" class="provider-select" onchange="App.switchProvider(this.value)" title="Сменить LLM-провайдер">
+          <option value="">Загрузка…</option>
+        </select>
+      </div>
+      <button id="new-session-btn" class="btn-ghost" title="Сбросить сессию текущего агента">↺ Новая сессия</button>
+    </div>
+  </header>
+
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <!-- АГЕНТ 1 — ТЕКСТОВЫЙ                                           -->
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <div id="text-screen" class="main-layout">
+
+    <aside class="sidebar">
+
+      <section class="sidebar-section">
+        <h3>📋 Проверить OKR</h3>
+        <textarea id="t-validate-input" rows="3" placeholder="Вставьте Objective или Key Result…"></textarea>
+        <button class="btn-tool" onclick="App.text.validateOKR()">✔ Проверить</button>
+      </section>
+
+      <section class="sidebar-section">
+        <h3>📎 Загрузить файл</h3>
+        <p class="hint">.txt .md .csv .xlsx .pdf</p>
+        <label class="btn-tool btn-file">
+          📁 Выбрать файл
+          <input type="file" id="t-file-input"
+                 accept=".txt,.csv,.xlsx,.xls,.pdf,.md,.png,.jpg,.jpeg"
+                 style="display:none" onchange="App.text.uploadFile(this)">
+        </label>
+        <p class="hint" style="margin-top:6px">.mp3 .wav .ogg (аудио → транскрипция)</p>
+        <label class="btn-tool btn-file" style="background:linear-gradient(to bottom,#7c3aed,#5b21b6)">
+          🎵 Загрузить аудио
+          <input type="file" id="t-audio-input"
+                 accept=".mp3,.wav,.ogg,.webm,.m4a"
+                 style="display:none" onchange="App.text.uploadAudio(this)">
+        </label>
+        <div id="t-file-status" class="file-status"></div>
+      </section>
+
+      <section class="sidebar-section">
+        <h3>📊 Анализ сессии</h3>
+        <label class="checkbox-row">
+          <input type="checkbox" id="t-use-prev-ctx"> Учитывать прошлые сессии
+        </label>
+        <button class="btn-tool" onclick="App.text.analyzeSession()">🔍 Анализировать</button>
+      </section>
+
+      <section class="sidebar-section">
+        <button class="btn-ghost btn-sm" onclick="App.text.clearHistory()">🗑 Очистить историю</button>
+        <button class="btn-ghost btn-sm" onclick="App.text.saveSession()">💾 Сохранить сессию</button>
+      </section>
+
+    </aside>
+
+    <main class="chat-area">
+      <div class="chat-header">
+        <span>🤖 Текстовый агент</span>
+        <span class="chat-hint">Анализ OKR по тексту, файлам и аудио</span>
+      </div>
+      <div id="t-chat-messages" class="chat-messages"></div>
+      <div class="chat-input-row">
+        <textarea id="t-chat-input" rows="9"
+                  placeholder="Напишите задачу или вопрос по OKR…"
+                  onkeydown="App.text.onChatKey(event)"></textarea>
+        <button class="btn-send" onclick="App.text.sendMessage()">▶</button>
+      </div>
+    </main>
+
+    <aside class="results-panel">
+      <div class="results-tabs">
+        <button class="tab-btn active" onclick="App.text.showTab('transcript')">📋 Стенограмма</button>
+        <button class="tab-btn" onclick="App.text.showTab('analysis')">📊 Анализ</button>
+      </div>
+      <div id="t-tab-transcript" class="tab-content">
+        <div id="t-transcript-box" class="content-box" placeholder="Расшифровка аудио появится здесь…"></div>
+      </div>
+      <div id="t-tab-analysis" class="tab-content" style="display:none">
+        <div id="t-analysis-box" class="content-box" placeholder="Анализ OKR появится здесь…"></div>
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <!-- АГЕНТ 2 — ТАБЛИЦЫ                                             -->
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <div id="sheets-screen" class="main-layout" style="display:none">
+
+    <aside class="sidebar">
+
+      <section class="sidebar-section">
+        <h3>🔗 Загрузить таблицу</h3>
+        <p class="hint">Google Sheets, CSV, Excel по ссылке</p>
+        <input type="url" id="s-url-input" placeholder="https://docs.google.com/..."
+               style="width:100%;background:#0d0d1a;border:1px solid #1e293b;border-radius:7px;
+                      color:#e2e8f0;padding:7px 9px;font-size:12px;outline:none;font-family:inherit"/>
+        <input type="text" id="s-url-task" placeholder="Задача: что нужно проанализировать"
+               style="width:100%;background:#0d0d1a;border:1px solid #1e293b;border-radius:7px;
+                      color:#e2e8f0;padding:7px 9px;font-size:12px;outline:none;
+                      font-family:inherit;margin-top:4px"/>
+        <button class="btn-tool" onclick="App.sheets.analyzeUrl()" style="margin-top:4px">
+          🌐 Загрузить и анализировать
+        </button>
+        <p class="hint" style="margin-top:8px">Или загрузите файл (.xlsx .csv)</p>
+        <label class="btn-tool btn-file">
+          📁 Выбрать файл таблицы
+          <input type="file" id="s-file-input" accept=".csv,.xlsx,.xls"
+                 style="display:none" onchange="App.sheets.uploadFile(this)">
+        </label>
+        <div id="s-file-status" class="file-status"></div>
+      </section>
+
+      <section class="sidebar-section">
+        <h3>🔗 Google Sheets</h3>
+        <button id="s-google-connect-btn" class="btn-tool" onclick="App.sheets.connectGoogle()"
+                style="background:linear-gradient(to bottom,#1a73e8,#1557b0)">
+          🔗 Подключить Google Sheets
+        </button>
+        <div id="s-google-status" style="font-size:11px;color:#64748b;min-height:16px"></div>
+        <button class="btn-tool" onclick="App.sheets.applyToSheet()"
+                style="background:linear-gradient(to bottom,#16a34a,#15803d);margin-top:4px">
+          ✏️ Внести изменения в таблицу
+        </button>
+      </section>
+
+      <section class="sidebar-section">
+        <button class="btn-ghost btn-sm" onclick="App.sheets.clearHistory()">🗑 Очистить историю</button>
+        <button class="btn-ghost btn-sm" onclick="App.sheets.saveSession()">💾 Сохранить сессию</button>
+      </section>
+
+    </aside>
+
+    <main class="chat-area">
+      <div class="chat-header">
+        <span>📊 Агент таблиц</span>
+        <span class="chat-hint">Анализ OKR таблиц и внесение изменений</span>
+      </div>
+      <div id="s-chat-messages" class="chat-messages"></div>
+      <div class="chat-input-row">
+        <textarea id="s-chat-input" rows="9"
+                  placeholder="Например: «Проанализируй OKR», «Найди слабые KR», «Улучши формулировки»…"
+                  onkeydown="App.sheets.onChatKey(event)"></textarea>
+        <button class="btn-send" onclick="App.sheets.sendMessage()">▶</button>
+      </div>
+    </main>
+
+    <aside class="results-panel">
+      <div class="results-tabs">
+        <button class="tab-btn active" onclick="App.sheets.showTab('analysis')">📊 Анализ</button>
+      </div>
+      <div id="s-tab-analysis" class="tab-content">
+        <div id="s-analysis-box" class="content-box" placeholder="Анализ таблицы появится здесь…"></div>
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <!-- АГЕНТ 3 — ГОЛОСОВОЙ                                           -->
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <div id="voice-screen" style="display:none;flex:1;flex-direction:column;min-height:0">
+
+    <div class="voice-controls-bar">
+      <button id="voice-rec-btn" class="voice-rec-btn" onclick="App.voice.toggleRecording()">
+        🎙 Начать сессию
+      </button>
+      <span id="voice-timer" class="rec-timer" style="display:none">00:00</span>
+      <span id="voice-status" class="voice-status-text">Нажмите чтобы начать запись</span>
+      <div style="flex:1"></div>
+      <button id="validate-sel-btn" class="btn-tool voice-validate-sel"
+              onclick="App.voice.validateSelection()" style="display:none">
+        ✔ Проверить выделенное
+      </button>
+      <button class="btn-ghost btn-sm" onclick="App.voice.clearSession()">🗑 Очистить</button>
+    </div>
+
+    <div class="voice-layout">
+      <div class="voice-left">
+        <div class="voice-panel-header">
+          📋 Стенограмма сессии
+          <span class="voice-panel-hint">Выделите фрагмент → нажмите «Проверить выделенное»</span>
+        </div>
+        <div id="voice-transcript" class="voice-transcript"></div>
+      </div>
+      <div class="voice-right">
+        <div class="voice-panel-header">
+          📊 Результаты валидации
+          <span id="voice-val-count" class="voice-panel-hint"></span>
+        </div>
+        <div id="voice-results" class="voice-results">
+          <div class="voice-results-empty">
+            Результаты появятся здесь.<br>Каждая фраза проверяется автоматически.
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<script src="/static/app.js?v=7"></script>
+</body>
+</html>

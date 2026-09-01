@@ -1,0 +1,44 @@
+[project]
+name = "claude-code"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic>=0.40.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "python-multipart>=0.0.12",
+    "websockets>=13.0",
+    "google-genai>=1.73.1",
+    "groq>=1.1.2",
+    "miniaudio>=1.70",
+    "mistralai>=2.4.0",
+    "ollama>=0.6.1",
+    "openpyxl>=3.1.5",
+    "pandas>=3.0.2",
+    "pillow>=12.2.0",
+    "pyaudio>=0.2.14",
+    "pyaudiowpatch>=0.2.12.8",
+    "pyinstaller>=6.19.0",
+    "pypdf2>=3.0.1",
+    "pyqt6>=6.11.0",
+    "soundcard>=0.4.6",
+    "sounddevice>=0.5.5",
+    "speechrecognition>=3.16.0",
+    "winrt-windows-devices-enumeration>=3.2.1",
+    "winrt-windows-foundation>=3.2.1",
+    "winrt-windows-foundation-collections>=3.2.1",
+    "winrt-windows-media-audio>=3.2.1",
+    "winrt-windows-media-capture>=3.2.1",
+    "winrt-windows-media-mediaproperties>=3.2.1",
+    "winrt-windows-media-render>=3.2.1",
+    "winrt-windows-storage>=3.2.1",
+    "winrt-windows-storage-streams>=3.2.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+    "pytest-qt>=4.5.0",
+]

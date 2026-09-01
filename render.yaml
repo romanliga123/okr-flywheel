@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: okr-agent
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn web.server:app --host 0.0.0.0 --port $PORT --workers 2
+    plan: free
+    envVars:
+      - key: OKR_PROVIDER
+        value: groq
+      - key: OKR_LANGUAGE
+        value: ru-RU
+      - key: OKR_PASSWORD
+        value: ""
+      - key: OKR_OLLAMA_MODEL
+        value: neural-chat
+      # Секретные ключи задайте вручную в Render Dashboard:
+      # OKR_API_KEY
+      # GOOGLE_CLIENT_ID
+      # GOOGLE_CLIENT_SECRET
+      # GOOGLE_REDIRECT_URI  ← https://<ваш-app>.onrender.com/auth/google/callback
