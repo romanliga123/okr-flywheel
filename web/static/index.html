@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>OKR Agent</title>
-  <link rel="stylesheet" href="/static/style.css?v=8">
+  <link rel="stylesheet" href="/static/style.css?v=9">
 </head>
 <body>
 
@@ -19,6 +19,53 @@
     </div>
     <button id="enter-btn" class="btn-primary">Войти →</button>
     <p id="login-error" class="error-text" style="display:none"></p>
+  </div>
+</div>
+
+<!-- ── Онбординг ───────────────────────────────────────────────────── -->
+<div id="onboarding-screen" class="screen" style="display:none">
+  <div class="onboarding-box">
+    <div class="logo">🎯</div>
+    <h2>Расскажите о вашей команде</h2>
+    <p class="ob-subtitle">Агент запомнит вашу команду и со временем будет давать более точный фидбек. Заполните один раз — потом не спросим.</p>
+
+    <div class="ob-field">
+      <label class="ob-label">Название команды <span class="ob-req">*</span></label>
+      <input type="text" id="ob-name" placeholder="Команда продаж, Команда роста…"
+             onkeydown="if(event.key==='Enter') document.getElementById('ob-industry').focus()" />
+    </div>
+
+    <div class="ob-field">
+      <label class="ob-label">Отрасль <span class="ob-req">*</span></label>
+      <input type="text" id="ob-industry" placeholder="SaaS, Ритейл, Финтех, Образование…"
+             onkeydown="if(event.key==='Enter') document.getElementById('ob-level').focus()" />
+    </div>
+
+    <div class="ob-field">
+      <label class="ob-label">Уровень OKR <span class="ob-req">*</span></label>
+      <select id="ob-level" class="ob-select">
+        <option value="">Выберите уровень…</option>
+        <option value="company">Компания (топ-уровень)</option>
+        <option value="department">Департамент / Дивизион</option>
+        <option value="team">Команда / Отдел</option>
+      </select>
+    </div>
+
+    <div class="ob-field">
+      <label class="ob-label">Опыт с методологией OKR <span class="ob-req">*</span></label>
+      <select id="ob-experience" class="ob-select">
+        <option value="">Сколько кварталов работаете с OKR…</option>
+        <option value="1">Первый квартал — только начинаем</option>
+        <option value="2">2–3 квартала</option>
+        <option value="4">4–6 кварталов</option>
+        <option value="8">Больше 6 кварталов</option>
+      </select>
+    </div>
+
+    <button id="ob-start-btn" class="btn-primary" onclick="App.completeOnboarding()">
+      Начать работу →
+    </button>
+    <p id="ob-error" class="error-text" style="display:none">Заполните все обязательные поля</p>
   </div>
 </div>
 
@@ -277,6 +324,6 @@
 
 </div>
 
-<script src="/static/app.js?v=8"></script>
+<script src="/static/app.js?v=9"></script>
 </body>
 </html>

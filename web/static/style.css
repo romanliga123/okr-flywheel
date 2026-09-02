@@ -51,6 +51,81 @@ body {
 
 .error-text { color: #f87171; font-size: 12px; margin-top: 8px; }
 
+/* ── Onboarding screen ────────────────────────────────────────────── */
+#onboarding-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0d0d1a 0%, #1e1b4b 100%);
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.onboarding-box {
+  background: #13131f;
+  border: 1px solid #2d2b55;
+  border-radius: 16px;
+  padding: 44px 40px;
+  width: 100%;
+  max-width: 460px;
+  box-shadow: 0 24px 60px rgba(0,0,0,.5);
+}
+
+.onboarding-box h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: #a78bfa;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.ob-subtitle {
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.55;
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.ob-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.ob-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+}
+
+.ob-req { color: #a78bfa; }
+
+.onboarding-box input[type="text"],
+.ob-select {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid #2d2b55;
+  background: #0d0d1a;
+  color: #e2e8f0;
+  font-size: 14px;
+  outline: none;
+  font-family: inherit;
+  transition: border-color .15s;
+}
+
+.onboarding-box input[type="text"]:focus,
+.ob-select:focus { border-color: #6d28d9; }
+
+.onboarding-box .btn-primary {
+  width: 100%;
+  margin-top: 8px;
+}
+
 /* ── App layout ───────────────────────────────────────────────────── */
 #app-screen {
   display: flex;

@@ -126,34 +126,86 @@ const App = (() => {
     msgEl.appendChild(fb);
   }
 
+  // ── Onboarding ────────────────────────────────────────────────────
+  function _needsOnboarding() {
+    return !localStorage.getItem('okr_team_name')
+        || !localStorage.getItem('okr_team_industry')
+        || !localStorage.getItem('okr_team_level');
+  }
+
+  function _showScreen(id) {
+    ['login-screen', 'onboarding-screen', 'app-screen'].forEach(s => {
+      document.getElementById(s).style.display = s === id ? 'flex' : 'none';
+    });
+  }
+
+  async function completeOnboarding() {
+    const name     = (document.getElementById('ob-name').value     || '').trim();
+    const industry = (document.getElementById('ob-industry').value || '').trim();
+    const level    = document.getElementById('ob-level').value;
+    const exp      = parseInt(document.getElementById('ob-experience').value || '0', 10);
+    const errEl    = document.getElementById('ob-error');
+
+    if (!name || !industry || !level) {
+      errEl.style.display = 'block';
+      return;
+    }
+    errEl.style.display = 'none';
+
+    _teamName = name;
+    localStorage.setItem('okr_team_name',       name);
+    localStorage.setItem('okr_team_industry',   industry);
+    localStorage.setItem('okr_team_level',      level);
+    localStorage.setItem('okr_team_experience', String(exp));
+
+    const sessionId = state.text.sessionId;
+    if (sessionId) await _registerTeam(sessionId, name, industry, level, exp);
+
+    _showScreen('app-screen');
+    _restoreTeamInput();
+    await connectWS('text');
+  }
+
   // ── Init ─────────────────────────────────────────────────────────
   async function init() {
-    // Try to restore text-agent session (default agent on load)
     const saved = localStorage.getItem(LS_KEY.text);
     if (saved) {
       state.text.sessionId = saved;
       _teamName = localStorage.getItem('okr_team_name') || '';
-      if (_teamName) await _registerTeam(saved, _teamName);
+
+      if (_needsOnboarding()) {
+        // Сессия есть, но профиль не заполнен — показываем онбординг
+        _showScreen('onboarding-screen');
+        return;
+      }
+
+      // Полный профиль — регистрируем и входим
+      await _registerTeam(saved, _teamName,
+        localStorage.getItem('okr_team_industry')   || '',
+        localStorage.getItem('okr_team_level')      || '',
+        parseInt(localStorage.getItem('okr_team_experience') || '0', 10));
       showApp();
       _restoreTeamInput();
       await connectWS('text');
       return;
     }
+
     try {
       const r = await fetch('/api/session', { method: 'POST', body: new FormData() });
       if (r.status === 403) {
         needsPassword = true;
         document.getElementById('password-row').style.display = 'block';
+        _showScreen('login-screen');
       } else if (r.ok) {
         const d = await r.json();
         state.text.sessionId = d.session_id;
         localStorage.setItem(LS_KEY.text, d.session_id);
-        showApp();
-        await connectWS('text');
+        // Новый пользователь — всегда онбординг
+        _showScreen('onboarding-screen');
         return;
       }
     } catch (_) {}
-    document.getElementById('login-screen').style.display = 'flex';
+    _showScreen('login-screen');
   }
 
   document.getElementById('enter-btn').addEventListener('click', async () => {
@@ -166,9 +218,13 @@ const App = (() => {
     const d = await r.json();
     state.text.sessionId = d.session_id;
     localStorage.setItem(LS_KEY.text, d.session_id);
-    showApp();
-    _restoreTeamInput();
-    await connectWS('text');
+    if (_needsOnboarding()) {
+      _showScreen('onboarding-screen');
+    } else {
+      showApp();
+      _restoreTeamInput();
+      await connectWS('text');
+    }
   });
 
   document.getElementById('password-input').addEventListener('keydown', e => {
@@ -354,6 +410,7 @@ const App = (() => {
   // ── App show ──────────────────────────────────────────────────────
   function showApp() {
     document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('onboarding-screen').style.display = 'none';
     document.getElementById('app-screen').style.display = 'flex';
     _loadProviders();
     _addMsg('text', 'Привет! Я ваш OKR-агент. Просто напишите мне — я помогу разобраться с вашими OKR.\n\nЧто можно сделать прямо в чате:\n• «Помоги сформулировать OKR для команды разработки»\n• «Проверь наши OKR — вот они: …»\n• «Что такое хороший Key Result?»\n• «Разбери мой Objective и найди слабые места»\n\nДополнительные возможности:\n• Загрузите файл (.txt .csv .xlsx .pdf) через кнопку слева\n• Загрузите аудио встречи — расшифрую и проанализирую\n• Вкладка «Таблицы» — анализ Google Sheets и внесение изменений\n• Вкладка «Голосовой» — проверка OKR вживую во время митинга', 'agent');
@@ -826,6 +883,7 @@ const App = (() => {
     switchProvider,
     saveTeam,
     submitQuarterResults,
+    completeOnboarding,
     text:   text_obj,
     sheets: sheets_obj,
     voice:  voice,
