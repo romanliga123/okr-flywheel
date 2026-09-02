@@ -84,7 +84,8 @@ header {
 
 #team-name-row { margin-bottom: 12px; }
 
-#team-section input[type="text"] {
+#team-section input[type="text"],
+#quarter-results-section input[type="text"] {
   width: 100%;
   background: #0d0d1a;
   border: 1px solid #1e293b;
@@ -95,6 +96,41 @@ header {
   outline: none;
   font-family: inherit;
 }
+
+#quarter-results-section textarea {
+  width: 100%;
+  background: #0d0d1a;
+  border: 1px solid #1e293b;
+  border-radius: 7px;
+  color: #e2e8f0;
+  padding: 8px;
+  font-size: 12px;
+  resize: vertical;
+  outline: none;
+  font-family: inherit;
+}
+
+/* ── Feedback buttons (👍/👎 after validation) ── */
+.feedback-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #1e293b;
+}
+.feedback-label { font-size: 11px; color: #475569; }
+.fb-btn {
+  background: none;
+  border: 1px solid #1e293b;
+  border-radius: 6px;
+  padding: 3px 9px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background .15s;
+  color: inherit;
+}
+.fb-btn:hover { background: #1e293b; }
 
 .badge {
   background: #1e1b4b;

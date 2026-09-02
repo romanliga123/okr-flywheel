@@ -195,15 +195,85 @@ async def get_provider(session_id: str):
 
 @app.post("/api/{session_id}/team")
 async def set_team(session_id: str, body: dict):
-    """Зарегистрировать команду для сессии. Вызывается сразу после создания сессии."""
+    """Зарегистрировать команду для сессии."""
     name = str(body.get("name", "")).strip()
     if not name:
         raise HTTPException(status_code=400, detail="name обязателен")
-    industry = str(body.get("industry", "")).strip()
+    industry      = str(body.get("industry", "")).strip()
+    okr_level     = str(body.get("okr_level", "")).strip()
+    okr_experience = int(body.get("okr_experience", 0) or 0)
     sess = _get_or_create_session(session_id)
     agent: AgentLoop = sess["loop"]
-    agent.set_team(name, industry)
-    return {"ok": True, "team_id": agent.ctx["team_id"], "team_name": agent.ctx["team_name"]}
+    agent.set_team(name, industry, okr_level, okr_experience)
+    return {
+        "ok": True,
+        "team_id": agent.ctx["team_id"],
+        "team_name": agent.ctx["team_name"],
+        "okr_level": agent.ctx["okr_level"],
+        "okr_experience": agent.ctx["okr_experience"],
+    }
+
+
+@app.post("/api/{session_id}/feedback")
+async def submit_feedback(session_id: str, body: dict):
+    """Оценить последний совет агента: score=1 (👍) или score=-1 (👎)."""
+    score = int(body.get("score", 0))
+    if score not in (1, -1):
+        raise HTTPException(status_code=400, detail="score должен быть 1 или -1")
+    sess = _get_or_create_session(session_id)
+    agent: AgentLoop = sess["loop"]
+    log_id = agent.ctx.get("last_log_id")
+    if not log_id:
+        return {"ok": False, "reason": "no_validation"}
+    _memory.log_feedback(log_id, score)
+    return {"ok": True, "log_id": log_id, "score": score}
+
+
+@app.post("/api/{session_id}/quarter-results")
+async def submit_quarter_results(session_id: str, body: dict):
+    """Сохранить итоги квартала для команды."""
+    sess = _get_or_create_session(session_id)
+    agent: AgentLoop = sess["loop"]
+    team_id = agent.ctx.get("team_id")
+    if not team_id:
+        raise HTTPException(status_code=400, detail="Сначала зарегистрируйте команду")
+    quarter = str(body.get("quarter", "")).strip()
+    kr_results = body.get("kr_results", [])
+    if not quarter:
+        raise HTTPException(status_code=400, detail="quarter обязателен (например Q3 2026)")
+    if not isinstance(kr_results, list) or not kr_results:
+        raise HTTPException(status_code=400, detail="kr_results должен быть непустым списком")
+    row_id = _memory.log_quarter_results(team_id, quarter, kr_results)
+    return {"ok": True, "id": row_id, "team_id": team_id, "quarter": quarter}
+
+
+@app.get("/api/{session_id}/quarter-results")
+async def get_quarter_results(session_id: str):
+    """Вернуть историю итогов квартала для команды."""
+    sess = _get_or_create_session(session_id)
+    agent: AgentLoop = sess["loop"]
+    team_id = agent.ctx.get("team_id")
+    if not team_id:
+        return {"results": []}
+    return {"results": _memory.get_team_quarter_results(team_id)}
+
+
+@app.post("/api/admin/quarterly-context")
+async def set_quarterly_context(body: dict):
+    """Установить стратегические приоритеты квартала (для Process Owner)."""
+    quarter = str(body.get("quarter", "")).strip()
+    priorities = str(body.get("strategic_priorities", "")).strip()
+    if not quarter or not priorities:
+        raise HTTPException(status_code=400, detail="quarter и strategic_priorities обязательны")
+    _memory.set_quarterly_context(quarter, priorities)
+    return {"ok": True, "quarter": quarter}
+
+
+@app.get("/api/admin/quarterly-context")
+async def get_quarterly_context():
+    """Получить текущий квартальный контекст."""
+    ctx = _memory.get_quarterly_context()
+    return ctx or {"quarter": None, "strategic_priorities": None}
 
 
 @app.get("/api/{session_id}/team/history")

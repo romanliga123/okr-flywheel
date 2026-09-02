@@ -15,12 +15,12 @@ const App = (() => {
   let _teamName = '';
 
   // ── Team helpers ─────────────────────────────────────────────────
-  async function _registerTeam(sessionId, name) {
+  async function _registerTeam(sessionId, name, industry = '', okr_level = '', okr_experience = 0) {
     try {
       await fetch(`/api/${sessionId}/team`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, industry, okr_level, okr_experience }),
       });
     } catch (_) {}
   }
@@ -38,23 +38,92 @@ const App = (() => {
   }
 
   function _restoreTeamInput() {
-    const saved = localStorage.getItem('okr_team_name') || '';
-    const input = document.getElementById('team-name-input');
-    if (input && saved) input.value = saved;
+    const saved    = localStorage.getItem('okr_team_name')       || '';
+    const industry = localStorage.getItem('okr_team_industry')   || '';
+    const level    = localStorage.getItem('okr_team_level')      || '';
+    const exp      = localStorage.getItem('okr_team_experience') || '0';
+    const nameEl   = document.getElementById('team-name-input');
+    const indEl    = document.getElementById('team-industry-input');
+    const lvlEl    = document.getElementById('team-level-select');
+    const expEl    = document.getElementById('team-experience-select');
+    if (nameEl && saved) nameEl.value = saved;
+    if (indEl && industry) indEl.value = industry;
+    if (lvlEl && level) lvlEl.value = level;
+    if (expEl && exp) expEl.value = exp;
     _showTeamBadge();
   }
 
   async function saveTeam() {
-    const input = document.getElementById('team-name-input');
-    const name = (input ? input.value : '').trim();
+    const nameEl     = document.getElementById('team-name-input');
+    const industryEl = document.getElementById('team-industry-input');
+    const levelEl    = document.getElementById('team-level-select');
+    const expEl      = document.getElementById('team-experience-select');
+    const name = (nameEl ? nameEl.value : '').trim();
     if (!name) return;
+    const industry      = industryEl ? industryEl.value.trim() : '';
+    const okr_level     = levelEl    ? levelEl.value          : '';
+    const okr_experience = expEl     ? parseInt(expEl.value || '0', 10) : 0;
     _teamName = name;
     localStorage.setItem('okr_team_name', name);
+    localStorage.setItem('okr_team_industry',  industry);
+    localStorage.setItem('okr_team_level',     okr_level);
+    localStorage.setItem('okr_team_experience', String(okr_experience));
     const sessionId = state.text.sessionId;
-    if (sessionId) await _registerTeam(sessionId, name);
+    if (sessionId) await _registerTeam(sessionId, name, industry, okr_level, okr_experience);
     _showTeamBadge();
     const hint = document.getElementById('team-saved-hint');
     if (hint) { hint.textContent = '✓ Команда сохранена'; hint.style.display = 'block'; }
+  }
+
+  async function submitQuarterResults() {
+    const quarterEl = document.getElementById('qr-quarter-input');
+    const resultsEl = document.getElementById('qr-results-input');
+    const quarter = quarterEl ? quarterEl.value.trim() : '';
+    const raw     = resultsEl ? resultsEl.value.trim() : '';
+    if (!quarter || !raw) return;
+    const sessionId = state.text.sessionId;
+    if (!sessionId) return;
+    // Парсим текст построчно: каждая строка — один KR-итог
+    const lines = raw.split('\n').filter(l => l.trim());
+    const kr_results = lines.map(l => ({ kr_text: l.trim(), achievement_pct: null, notes: '' }));
+    try {
+      await fetch(`/api/${sessionId}/quarter-results`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quarter, kr_results }),
+      });
+      const hint = document.getElementById('qr-saved-hint');
+      if (hint) { hint.textContent = '✓ Итоги квартала сохранены'; hint.style.display = 'block'; }
+      if (resultsEl) resultsEl.value = '';
+    } catch (_) {}
+  }
+
+  async function _sendFeedback(sessionId, score) {
+    try {
+      await fetch(`/api/${sessionId}/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ score }),
+      });
+    } catch (_) {}
+  }
+
+  function _addFeedbackButtons(msgEl, sessionId) {
+    const fb = document.createElement('div');
+    fb.className = 'feedback-row';
+    fb.innerHTML = `
+      <span class="feedback-label">Совет полезен?</span>
+      <button class="fb-btn" data-score="1" title="Да, полезно">👍</button>
+      <button class="fb-btn" data-score="-1" title="Нет, не помогло">👎</button>
+    `;
+    fb.querySelectorAll('.fb-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const score = parseInt(btn.dataset.score, 10);
+        await _sendFeedback(sessionId, score);
+        fb.innerHTML = `<span class="feedback-label" style="color:#4ade80">✓ Спасибо за оценку</span>`;
+      });
+    });
+    msgEl.appendChild(fb);
   }
 
   // ── Init ─────────────────────────────────────────────────────────
@@ -213,6 +282,11 @@ const App = (() => {
     const content = document.createElement('div');
     content.textContent = text;
     div.appendChild(content);
+    // Кнопки 👍/👎 после ответов агента, содержащих оценку OKR
+    if (kind === 'agent' && text.includes('ОЦЕНКА:') && agent === 'text') {
+      const sessionId = state.text.sessionId;
+      if (sessionId) _addFeedbackButtons(div, sessionId);
+    }
     box.appendChild(div);
     box.scrollTop = box.scrollHeight;
   }
@@ -751,6 +825,7 @@ const App = (() => {
     switchAgent,
     switchProvider,
     saveTeam,
+    submitQuarterResults,
     text:   text_obj,
     sheets: sheets_obj,
     voice:  voice,

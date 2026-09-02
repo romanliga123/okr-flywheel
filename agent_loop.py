@@ -333,6 +333,8 @@ class AgentLoop:
             "team_id": None,        # UUID команды в memory.db
             "team_name": None,      # отображаемое имя
             "last_log_id": None,    # id последней записи в validation_log (для пометки пересдачи)
+            "okr_level": "",        # company / department / team
+            "okr_experience": 0,    # кварталов с OKR-методологией
         }
 
         # Запись митинга
@@ -431,20 +433,33 @@ class AgentLoop:
         if self._stop_event:
             self._stop_event.set()
 
-    def set_team(self, name: str, industry: str = "") -> None:
+    def set_team(self, name: str, industry: str = "",
+                 okr_level: str = "", okr_experience: int = 0) -> None:
         """Зарегистрировать команду для этой сессии. Вызывается из web/server.py."""
         team = _memory.get_or_create_team(name, industry)
         self.ctx["team_id"] = team["team_id"]
         self.ctx["team_name"] = team["name"]
+        self.ctx["okr_level"] = okr_level or team.get("okr_level", "")
+        self.ctx["okr_experience"] = okr_experience or team.get("okr_experience", 0)
         _memory.increment_session_count(team["team_id"])
+        if industry or okr_level or okr_experience:
+            _memory.update_team_profile(
+                team["team_id"],
+                industry=industry or None,
+                okr_level=okr_level or None,
+                okr_experience=okr_experience or None,
+            )
 
     def reset_session(self) -> None:
         """Сбросить контекст сессии (но не диалог). Команда сохраняется."""
-        team_id   = self.ctx.get("team_id")
-        team_name = self.ctx.get("team_name")
+        team_id      = self.ctx.get("team_id")
+        team_name    = self.ctx.get("team_name")
+        okr_level    = self.ctx.get("okr_level", "")
+        okr_exp      = self.ctx.get("okr_experience", 0)
         self.ctx = {
             "files": {}, "files_raw": {}, "transcript_count": 0,
             "team_id": team_id, "team_name": team_name, "last_log_id": None,
+            "okr_level": okr_level, "okr_experience": okr_exp,
         }
         self.core.clear_history() if self.core else None
 
@@ -473,19 +488,51 @@ class AgentLoop:
         if self.ctx.get("team_id"):
             try:
                 td = _memory.get_team_context(self.ctx["team_id"])
+                name = self.ctx["team_name"]
+                level_map = {"company": "компания", "department": "департамент", "team": "команда"}
+                level_label = level_map.get(self.ctx.get("okr_level", ""), "")
+                exp = self.ctx.get("okr_experience", 0)
+
+                meta_parts = []
+                if self.ctx.get("industry"):
+                    meta_parts.append(f"Отрасль: {self.ctx['industry']}")
+                if level_label:
+                    meta_parts.append(f"Уровень OKR: {level_label}")
+                if exp:
+                    meta_parts.append(f"Опыт с OKR: {exp} кв.")
+                meta_line = (" | ".join(meta_parts) + "\n") if meta_parts else ""
+
                 if td["history_count"] > 0:
                     errs = ", ".join(td["top_errors"]) if td["top_errors"] else "нет"
+                    fb_line = ""
+                    if td["feedback_positive_pct"] is not None:
+                        fb_line = f"• Полезность советов: {td['feedback_positive_pct']}% положительных\n"
                     team_block = (
-                        f"\n## ПРОФИЛЬ КОМАНДЫ: {self.ctx['team_name']}\n"
+                        f"\n## ПРОФИЛЬ КОМАНДЫ: {name}\n"
+                        f"{meta_line}"
                         f"• Прошлых валидаций: {td['history_count']}\n"
                         f"• Средний балл: {td['avg_score']}/10\n"
                         f"• Частые ошибки: {errs}\n"
+                        f"{fb_line}"
                         f"• Последние OKR: {td['last_okrs_preview']}\n"
                     )
                 else:
-                    team_block = f"\n## КОМАНДА: {self.ctx['team_name']} (первая валидация)\n"
+                    team_block = f"\n## КОМАНДА: {name} (первая валидация)\n{meta_line}"
             except Exception:
                 pass
+
+        # Квартальный контекст — стратегические приоритеты
+        quarterly_block = ""
+        try:
+            qctx = _memory.get_quarterly_context()
+            if qctx:
+                quarterly_block = (
+                    f"\n## КВАРТАЛЬНЫЙ КОНТЕКСТ: {qctx['quarter']}\n"
+                    f"Стратегические приоритеты компании:\n{qctx['strategic_priorities']}\n"
+                    f"При оценке OKR проверяй соответствие этим приоритетам.\n"
+                )
+        except Exception:
+            pass
 
         # Содержимое файлов — включается в каждый промпт, не вытесняется историей
         files_block = ""
@@ -508,7 +555,7 @@ class AgentLoop:
         current_block = f"\n## ТЕКУЩИЙ ВОПРОС\n[USER]: {last_user}\n" if last_user else ""
 
         sys = SYSTEM_PROMPT_WEB if self.web_mode else SYSTEM_PROMPT
-        return f"{sys}{team_block}{ctx_block}{files_block}{history_block}{current_block}\n[AI]:"
+        return f"{sys}{team_block}{quarterly_block}{ctx_block}{files_block}{history_block}{current_block}\n[AI]:"
 
     def _step(self) -> None:
         """Один шаг агента: вызов LLM → разбор → выполнение."""

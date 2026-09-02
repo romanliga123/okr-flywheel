@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>OKR Agent</title>
-  <link rel="stylesheet" href="/static/style.css?v=7">
+  <link rel="stylesheet" href="/static/style.css?v=8">
 </head>
 <body>
 
@@ -57,8 +57,37 @@
         <input type="text" id="team-name-input"
                placeholder="Название команды…"
                onkeydown="if(event.key==='Enter') App.saveTeam()" />
+        <input type="text" id="team-industry-input"
+               placeholder="Отрасль (SaaS, Ритейл, Банк…)"
+               style="margin-top:4px" />
+        <select id="team-level-select" style="margin-top:4px;width:100%;background:#0d0d1a;border:1px solid #1e293b;border-radius:7px;color:#e2e8f0;padding:7px 9px;font-size:12px;outline:none;font-family:inherit">
+          <option value="">Уровень OKR…</option>
+          <option value="company">Компания (топ-уровень)</option>
+          <option value="department">Департамент / Дивизион</option>
+          <option value="team">Команда / Отдел</option>
+        </select>
+        <select id="team-experience-select" style="margin-top:4px;width:100%;background:#0d0d1a;border:1px solid #1e293b;border-radius:7px;color:#e2e8f0;padding:7px 9px;font-size:12px;outline:none;font-family:inherit">
+          <option value="0">Опыт с OKR…</option>
+          <option value="1">1-й квартал (новички)</option>
+          <option value="2">2–3 квартала</option>
+          <option value="4">4–6 кварталов</option>
+          <option value="8">Больше 6 кварталов</option>
+        </select>
         <button class="btn-tool" onclick="App.saveTeam()" style="margin-top:6px">Сохранить</button>
         <p id="team-saved-hint" class="hint" style="display:none; color:#4ade80; margin-top:4px"></p>
+      </section>
+
+      <section class="sidebar-section" id="quarter-results-section">
+        <h3>📅 Итоги квартала</h3>
+        <p class="hint">Расскажите что случилось — агент учтёт в следующей валидации</p>
+        <input type="text" id="qr-quarter-input" placeholder="Квартал (Q3 2026)" />
+        <textarea id="qr-results-input" rows="4"
+                  placeholder="KR1: выполнен на 85%, KR2: провалили из-за…"
+                  style="margin-top:4px"></textarea>
+        <button class="btn-tool" onclick="App.submitQuarterResults()" style="margin-top:4px">
+          📤 Сохранить итоги
+        </button>
+        <p id="qr-saved-hint" class="hint" style="display:none; color:#4ade80; margin-top:4px"></p>
       </section>
 
       <section class="sidebar-section">
@@ -248,6 +277,6 @@
 
 </div>
 
-<script src="/static/app.js?v=7"></script>
+<script src="/static/app.js?v=8"></script>
 </body>
 </html>
